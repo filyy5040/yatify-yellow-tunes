@@ -1,5 +1,7 @@
-
 // Yatify - Apple Music Clone JavaScript
+
+import { youtubeAPI } from './youtube-api.js';
+import { isAPIConfigured } from './config.js';
 
 class YatifyApp {
   constructor() {
@@ -16,7 +18,59 @@ class YatifyApp {
     this.setupSearchFunctionality();
     this.preloadImages();
     
+    // Verifica configurazione API
+    if (!isAPIConfigured()) {
+      console.warn('⚠️ YouTube API key not configured. Please update src/js/config.js');
+    } else {
+      console.log('🎵 YouTube API configured successfully');
+      this.loadDefaultContent();
+    }
+    
     console.log('🎵 Yatify initialized successfully');
+  }
+
+  async loadDefaultContent() {
+    // Carica contenuti di default per la home
+    try {
+      const trendingData = await youtubeAPI.getTrendingMusic(12);
+      if (trendingData.items && trendingData.items.length > 0) {
+        this.updateHomeContent(trendingData.items);
+      }
+    } catch (error) {
+      console.error('❌ Error loading default content:', error);
+    }
+  }
+
+  updateHomeContent(videos) {
+    // Aggiorna le card nella home con i video reali
+    const albumCards = document.querySelectorAll('.album-card');
+    
+    videos.slice(0, albumCards.length).forEach((video, index) => {
+      const card = albumCards[index];
+      if (card) {
+        const img = card.querySelector('img');
+        const title = card.querySelector('.album-title');
+        const artist = card.querySelector('.album-artist');
+        
+        if (img && video.snippet.thumbnails?.medium?.url) {
+          img.src = video.snippet.thumbnails.medium.url;
+          img.alt = video.snippet.title;
+        }
+        
+        if (title) {
+          title.textContent = video.snippet.title.length > 25 
+            ? video.snippet.title.substring(0, 25) + '...' 
+            : video.snippet.title;
+        }
+        
+        if (artist) {
+          artist.textContent = video.snippet.channelTitle;
+        }
+        
+        // Aggiungi video ID per la riproduzione
+        card.dataset.videoId = video.id.videoId;
+      }
+    });
   }
 
   setupEventListeners() {
@@ -247,19 +301,35 @@ class YatifyApp {
   }
 
   playMedia(mediaElement) {
-    // Extract media info
-    const title = mediaElement.querySelector('.album-title, .station-title, .track-title')?.textContent || 'Unknown Title';
-    const artist = mediaElement.querySelector('.album-artist, .station-subtitle, .track-artist')?.textContent || 'Unknown Artist';
-    const artwork = mediaElement.querySelector('img')?.src || '';
+    const videoId = mediaElement.dataset.videoId;
+    
+    if (videoId) {
+      // Usa il video ID di YouTube per la riproduzione
+      console.log(`🎵 Playing YouTube video: ${videoId}`);
+      
+      const title = mediaElement.querySelector('.album-title, .station-title, .track-title')?.textContent || 'Unknown Title';
+      const artist = mediaElement.querySelector('.album-artist, .station-subtitle, .track-artist')?.textContent || 'Unknown Artist';
+      const artwork = mediaElement.querySelector('img')?.src || '';
 
-    // Update player bar
-    this.updatePlayerBar(title, artist, artwork);
+      this.updatePlayerBar(title, artist, artwork);
+      
+      // Qui potresti integrare il player embed di YouTube
+      this.isPlaying = true;
+      this.currentTrack = { title, artist, artwork, videoId };
+      
+    } else {
+      // Fallback per elementi senza video ID
+      const title = mediaElement.querySelector('.album-title, .station-title, .track-title')?.textContent || 'Unknown Title';
+      const artist = mediaElement.querySelector('.album-artist, .station-subtitle, .track-artist')?.textContent || 'Unknown Artist';
+      const artwork = mediaElement.querySelector('img')?.src || '';
+
+      this.updatePlayerBar(title, artist, artwork);
+      
+      this.isPlaying = true;
+      this.currentTrack = { title, artist, artwork };
+    }
     
-    // Update play state
-    this.isPlaying = true;
-    this.currentTrack = { title, artist, artwork };
-    
-    console.log(`🎵 Now playing: ${title} by ${artist}`);
+    console.log(`🎵 Now playing: ${this.currentTrack.title} by ${this.currentTrack.artist}`);
   }
 
   updatePlayerBar(title, artist, artwork) {
@@ -351,7 +421,7 @@ class YatifyApp {
     // Placeholder for context menu
   }
 
-  performSearch(query) {
+  async performSearch(query) {
     console.log(`🎵 Searching for: ${query}`);
     
     // Show loading state
@@ -359,17 +429,35 @@ class YatifyApp {
     const originalPlaceholder = searchInput.placeholder;
     searchInput.placeholder = 'Cercando...';
     
-    // Simulate search delay
+    try {
+      const results = await youtubeAPI.searchVideos(query, 20);
+      
+      if (results.error) {
+        console.error('❌ Search error:', results.error);
+        searchInput.placeholder = 'Errore nella ricerca';
+      } else {
+        console.log(`✅ Found ${results.items.length} results`);
+        this.displaySearchResults(results.items);
+        searchInput.placeholder = originalPlaceholder;
+      }
+    } catch (error) {
+      console.error('❌ Search failed:', error);
+      searchInput.placeholder = 'Errore di rete';
+    }
+    
     setTimeout(() => {
       searchInput.placeholder = originalPlaceholder;
-      // Here you would integrate with YouTube Data API
-      this.displaySearchResults(query);
-    }, 500);
+    }, 2000);
   }
 
-  displaySearchResults(query) {
-    // Placeholder for search results display
-    console.log(`🎵 Displaying results for: ${query}`);
+  displaySearchResults(videos) {
+    console.log(`🎵 Displaying ${videos.length} search results`);
+    
+    // Qui puoi implementare la logica per mostrare i risultati
+    // Per ora solo log dei risultati
+    videos.forEach((video, index) => {
+      console.log(`${index + 1}. ${video.snippet.title} - ${video.snippet.channelTitle}`);
+    });
   }
 
   clearSearchResults() {
