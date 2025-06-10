@@ -2,7 +2,7 @@
 // YouTube Data API v3 Configuration
 export const YOUTUBE_CONFIG = {
   // Inserisci qui la tua chiave API di YouTube Data API v3
-  API_KEY: 'YOUR_YOUTUBE_API_KEY_HERE',
+  API_KEY: 'AIzaSyDKGowJbLDoQwnXzvBd8V4TqRz0hVlPW7M',
   BASE_URL: 'https://www.googleapis.com/youtube/v3',
   
   // Endpoint URLs
